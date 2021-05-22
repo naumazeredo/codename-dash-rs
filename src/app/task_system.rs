@@ -3,23 +3,21 @@
 // [ ] Refactor to timer wheel
 // [ ] Add next frame scheduling
 
-/*
-
-// construction
-
-let task_system = TaskSystem::new();
-
-// scheduling
-
-let task = app.schedule_task(1_000_000, |id, _state, app| {
-    println!("task {} {}", id, app.game_time());
-});
-
-// cancel
-
-app.cancel_task(&mut task);
-
-*/
+///
+/// // construction
+///
+/// let task_system = TaskSystem::new();
+///
+/// // scheduling
+///
+/// let task = app.schedule_task(1_000_000, |id, _state, app| {
+///    println!("task {} {}", id, app.game_time());
+/// });
+///
+/// // cancel
+///
+/// app.cancel_task(&mut task);
+///
 
 use std::collections::{BinaryHeap, HashSet};
 use std::cmp::Ordering;

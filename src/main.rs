@@ -2,18 +2,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![cfg_attr(debug_assertions, allow(dead_code))]
 
-#![feature(option_expect_none)]
+//#![feature(option_expect_none)]
 
 #[macro_use] extern crate bitflags;
 extern crate imgui;
 extern crate imgui_opengl_renderer;
 
 #[macro_use] mod app;
-mod entities;
+//mod entities;
 mod linalg;
 
 use app::*;
-use entities::*;
 use linalg::*;
 
 fn main() {
@@ -22,19 +21,18 @@ fn main() {
 
 #[derive(ImDraw)]
 pub struct State {
-    pub texture: Texture,
-
-    pub entity_containers: EntityContainers,
-    pub entity_id: MyEntityId,
-    pub animated_entity_id: MyEntityId,
-
     pub input_mapping: InputMapping,
-
     pub font: Font,
-    pub text: String,
-    pub text_transform: Transform,
-    pub font_size: f32,
+    pub texture: Texture,
+    pub sprites: Sprites,
+}
 
+#[derive(ImDraw)]
+pub struct Sprites {
+    pub target_sprite: Sprite,
+    pub short_note_sprite: Sprite,
+    pub long_note_sprites: (Sprite, Sprite, Sprite),
+    pub rhythm_line_sprite: Sprite,
 }
 
 impl GameState for State {
@@ -43,64 +41,26 @@ impl GameState for State {
         let font = app.bake_font("assets/fonts/Monocons.ttf").unwrap();
 
         // Animation
-        let texture = app.get_texture("assets/gfx/template-anim-128x32-4frames.png");
+        let texture = app.get_texture("assets/gfx/gfx.png");
 
-        let mut build_frame = |x, y| {
-            app.build_frame(
-                Sprite {
-                    texture,
-                    texture_flip: TextureFlip::NO,
-                    uvs: (Vec2i { x, y }, Vec2i { x: 32 + x, y: 32 + y }),
-                    pivot: Vec2 { x: 16., y: 16. },
-                    size: Vec2 { x: 32., y: 32. },
-                },
-                1_000_000,
-            )
-        };
-
-        let frame_0 = build_frame(0, 0);
-        let frame_1 = build_frame(32, 0);
-        let frame_2 = build_frame(64, 0);
-        let frame_3 = build_frame(96, 0);
-
-        let animation_0 = app.build_animation(vec![frame_0, frame_2], Repetitions::Infinite);
-        let animation_1 = app.build_animation(vec![frame_0, frame_1, frame_2, frame_3],
-                                              Repetitions::Finite(5));
-
-        let animation_set = app.build_animation_set(vec![animation_0, animation_1]);
-
-        // Entities
-
-        let mut entity_containers = EntityContainers::new();
-
-        let entity_id = entity_containers.create::<MyEntity>(
-            Transform {
-                pos: Vec2 { x: 100., y: 400. },
-                rot: 0.,
-                layer: 0,
-            },
+        let build_sprite = |x, y, w, h| {
             Sprite {
                 texture,
                 texture_flip: TextureFlip::NO,
-                uvs: (Vec2i { x: 0, y: 0 }, Vec2i { x: 32, y: 32 }),
-                pivot: Vec2 { x: 16., y: 16. },
-                size: Vec2 { x: 32., y: 32. },
-            },
-        );
+                uvs: (Vec2i { x, y }, Vec2i { x: w + x, y: h + y }),
+                pivot: Vec2 { x: w as f32 / 2., y: h as f32 / 2. },
+                size: Vec2 { x: w as f32, y: h as f32 },
+            }
+        };
 
-        //let animated_entity_id = entity_containers.create::<AnimatedEntity>(
-        let animated_entity_id = entity_containers.create_animated::<MyEntity>(
-            Transform {
-                pos: Vec2 { x: 100., y: 200. },
-                rot: 0.,
-                layer: 0,
-            },
-            animation_set
+        let target_sprite = build_sprite(0, 0, 32, 32);
+        let short_note_sprite = build_sprite(32, 0, 16, 16);
+        let long_note_sprites = (
+            build_sprite(48, 0, 16, 16),
+            build_sprite(64, 0, 16, 16),
+            build_sprite(80, 0, 16, 16),
         );
-
-        let animated_entity = entity_containers.get_mut(animated_entity_id).unwrap();
-        //animated_entity.change_animation_set(animation_set, app);
-        animated_entity.play_animation(app);
+        let rhythm_line_sprite = build_sprite(96, 0, 16, 16);
 
         // input
         let mut input_mapping = InputMapping::new();
@@ -158,50 +118,38 @@ impl GameState for State {
         }
 
         Self {
-            texture,
-
-            entity_containers,
-            entity_id,
-            animated_entity_id,
-
             input_mapping,
-
             font,
-            text: "Hello World".to_owned(),
-            text_transform: Transform {
-                pos: Vec2 { x: 200., y: 200. },
-                rot: 0.,
-                layer: 0,
-            },
-            font_size: 32.,
+            texture,
+            sprites: Sprites {
+                target_sprite,
+                short_note_sprite,
+                long_note_sprites,
+                rhythm_line_sprite,
+            }
         }
     }
 
     fn update(&mut self, app: &mut App<'_, Self>) {
         app.update_input_mapping(&mut self.input_mapping);
-
-        let u_button = self.input_mapping.button("UP".to_string()).down();
-        let d_button = self.input_mapping.button("DOWN".to_string()).down();
-        let r_button = self.input_mapping.button("RIGHT".to_string()).down();
-        let l_button = self.input_mapping.button("LEFT".to_string()).down();
-        let move_direction = Vec2 {
-            x: ((r_button as i32) - (l_button as i32)) as f32,
-            y: ((d_button as i32) - (u_button as i32)) as f32,
-        };
-
-        if let Some(my_entity) = self.entity_containers.get_mut(self.entity_id) {
-            my_entity.entity_mut().transform.pos +=
-                100.0 * app.last_frame_duration() * move_direction;
-        }
     }
 
     fn render(&mut self, app: &mut App<'_, Self>) {
-        self.entity_containers.render(app);
         app.queue_draw_text(
-            &self.text,
+            "Hello world",
             &self.font,
-            &self.text_transform,
-            self.font_size,
+            &Transform {
+                pos: Vec2 { x: 200., y: 200. },
+                rot: 0.,
+                layer: 0,
+            },
+            32.,
+            WHITE
+        );
+
+        app.queue_draw_sprite(
+            &Transform::from_pos(100.0, 100.0),
+            &self.sprites.target_sprite,
             WHITE
         );
 
@@ -222,34 +170,6 @@ impl GameState for State {
         if app.handle_debug_event(&event) { return true; }
 
         match event {
-            Event::KeyDown { scancode: Some(Scancode::Num1), .. } => {
-                app.schedule_task(1_000_000, |id, _state, app| {
-                    println!("task {} {}", id, app.game_time());
-                });
-            },
-            Event::KeyDown { scancode: Some(Scancode::K), .. } => {
-                self.entity_containers.destroy(self.entity_id);
-            },
-            Event::KeyDown { scancode: Some(Scancode::J), .. } => {
-                let count = self.entity_containers.my_entity_container.len();
-
-                for _ in 0..(10000 - count) {
-                    self.entity_id = self.entity_containers.create::<MyEntity>(
-                        Transform {
-                            pos: Vec2 { x: 100., y: 400. },
-                            rot: 0.,
-                            layer: 0,
-                        },
-                        Sprite {
-                            texture: self.texture,
-                            texture_flip: TextureFlip::NO,
-                            uvs: (Vec2i { x: 0, y: 0 }, Vec2i { x: 32, y: 32 }),
-                            pivot: Vec2 { x: 16., y: 16. },
-                            size: Vec2 { x: 32., y: 32. },
-                        },
-                    );
-                }
-            },
             Event::KeyDown { scancode: Some(Scancode::F11), .. } => {
                 use sdl2::video::FullscreenType;
 
